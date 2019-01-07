@@ -14,7 +14,23 @@ local TYPE_HTML = "text/html"
 local text_template = "%s"
 local html_template = '<html><head><title>Kong Error</title></head><body><h1>Kong Error</h1><p>%s.</p></body></html>'
 
-local INVALID_TOKEN = 'Invalid Token'
+local INVALID_TOKEN =
+  '{ "resourceType": "OperationOutcome",\n' ..
+  '  "id": "exception",\n' ..
+  '  "text": {\n' ..
+  '      "status": "additional",\n' ..
+  '      "div": "<div xmlns=\\"http://www.w3.org/1999/xhtml\\"><p>invalid token.</p></div>"\n' ..
+  '  },\n' ..
+  '  "issue": [\n' ..
+  '      {\n' ..
+  '          "severity": "error",\n' ..
+  '          "code": "exception",\n' ..
+  '          "details": {\n' ..
+  '              "text": "invalid token."\n' ..
+  '          }\n' ..
+  '      }\n' ..
+  '  ]\n' ..
+  '}'
 
 function ValidateToken:new()
   ValidateToken.super.new(self, "validate-token")
@@ -75,7 +91,6 @@ function ValidateToken:send_response(status_code, message)
   ngx.status = status_code
   ngx.header["Content-Type"] = TYPE_JSON
   
-  --TODO: Return FHIR OO
   if (status_code == 401) then
 	ngx.say(INVALID_TOKEN)
   elseif (status_code == 500) then
