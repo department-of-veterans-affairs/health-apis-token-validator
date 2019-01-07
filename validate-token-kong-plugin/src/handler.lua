@@ -7,12 +7,7 @@ local cjson = require "cjson.safe"
 local find = string.find
 local format = string.format
 
-local TYPE_PLAIN = "text/plain"
 local TYPE_JSON = "application/json"
-local TYPE_HTML = "text/html"
-
-local text_template = "%s"
-local html_template = '<html><head><title>Kong Error</title></head><body><h1>Kong Error</h1><p>%s.</p></body></html>'
 
 local INVALID_TOKEN =
   '{ "resourceType": "OperationOutcome",\n' ..
