@@ -9,23 +9,27 @@ local format = string.format
 
 local TYPE_JSON = "application/json"
 
-local INVALID_TOKEN =
+local OPERATIONAL_OUTCOME_TEMPLATE =
   '{ "resourceType": "OperationOutcome",\n' ..
   '  "id": "exception",\n' ..
   '  "text": {\n' ..
   '      "status": "additional",\n' ..
-  '      "div": "<div xmlns=\\"http://www.w3.org/1999/xhtml\\"><p>invalid token.</p></div>"\n' ..
+  '      "div": "<div xmlns=\\"http://www.w3.org/1999/xhtml\\"><p>%s</p></div>"\n' ..
   '  },\n' ..
   '  "issue": [\n' ..
   '      {\n' ..
   '          "severity": "error",\n' ..
   '          "code": "exception",\n' ..
   '          "details": {\n' ..
-  '              "text": "invalid token."\n' ..
+  '              "text": "%s"\n' ..
   '          }\n' ..
   '      }\n' ..
   '  ]\n' ..
   '}'
+
+local INVALID_TOKEN = "invalid token."
+local BAD_VALIDATE_ENDPOINT = "Validate endpoint not found."
+local VALIDATE_ERROR = "Error validating token."
 
 function ValidateToken:new()
   ValidateToken.super.new(self, "validate-token")
@@ -38,7 +42,7 @@ function ValidateToken:access(conf)
   self.conf = conf
 
   if (ngx.req.get_headers()["Authorization"] == nil) then
-      return self:send_response(401, "Unauthorized")
+      return self:send_response(401, INVALID_TOKEN)
   end
 
   local client = http.new()
@@ -55,7 +59,7 @@ function ValidateToken:access(conf)
 
   if not verification_res then
     -- Error making request to validate endpoint
-    return self:send_response(500, "Internal Server Error")
+    return self:send_response(404, BAD_VALIDATE_ENDPOINT)
   end
 
   -- Get the status and body of the verification request
@@ -65,12 +69,12 @@ function ValidateToken:access(conf)
 
   -- If unauthorized, we block the user
   if (verification_res_status == 401) then
-    return self:send_response(401, "Unauthorized")
+    return self:send_response(401, INVALID_TOKEN)
   end
 
   -- An unexpected condition
   if (verification_res_status < 200 or verification_res_status > 299) then
-    return self:send_response(500, "Internal Server Error")
+    return self:send_response(500, VALIDATE_ERROR)
   end
 
   -- The validate endpoint is actually checking the expiration
@@ -85,15 +89,9 @@ function ValidateToken:send_response(status_code, message)
 
   ngx.status = status_code
   ngx.header["Content-Type"] = TYPE_JSON
-  
-  if (status_code == 401) then
-	ngx.say(INVALID_TOKEN)
-  elseif (status_code == 500) then
-    ngx.say("Error validating token")
-  else
-    ngx.say("Other error")
-  end
-  
+
+  ngx.say(format(OPERATIONAL_OUTCOME_TEMPLATE, message, message))
+
   ngx.exit(status_code)
 end
 
