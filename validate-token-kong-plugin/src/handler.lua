@@ -30,7 +30,7 @@ local OPERATIONAL_OUTCOME_TEMPLATE =
 local INVALID_TOKEN = "invalid token."
 local BAD_VALIDATE_ENDPOINT = "Validate endpoint not found."
 local VALIDATE_ERROR = "Error validating token."
-local TOKEN_MISMATCH = "Token not allowed access to this patient"
+local TOKEN_MISMATCH = "Token not allowed access to this patient."
 
 function ValidateToken:new()
   ValidateToken.super.new(self, "validate-token")
@@ -83,20 +83,26 @@ function ValidateToken:access(conf)
   local json = cjson.decode(verification_res_body)
 
   local tokenIcn = json.data.attributes["va_identifiers"].icn
-  ngx.log(ngx.ERR, "Token ICN: ", tokenIcn)
-
   local requestIcn = ngx.req.get_uri_args()["patient"]
+
   if (requestIcn == nil) then
-    --Still need to check the patient read
-    ngx.log(ngx.ERR, "Check if patient read")
+    i, j = find(ngx.var.uri, "/Patient/")
+    if (i ~= nil) then
+      local pathIcn = string.sub(ngx.var.uri, j+1, j+1+string.len(tokenIcn))
+      if (pathIcn ~= tokenIcn) then
+        ngx.log(ngx.ERR, "Path ICN does not match token")
+        return self:send_response(403, TOKEN_MISMATCH)
+      end
+    end
   else
-    if (requestIcn ~= tokenIcn)
+    if (requestIcn ~= tokenIcn) then
       ngx.log(ngx.ERR, "Requested ICN does not match token")
       return self:send_response(403, TOKEN_MISMATCH)
     end
   end
 
-  ngx.log(ngx.ERR, ngx.req.get_uri_args()["patient"])
+  -- TODO validate scopes
+  --ngx.log(ngx.ERR, "Scopes: ", json.data.attributes.scp[0])
 
 end
 
@@ -113,3 +119,5 @@ end
 
 
 ValidateToken.PRIORITY = 1010
+
+return ValidateToken
