@@ -112,7 +112,15 @@ end
 
 function ValidateToken:check_scope(json)
 
-  local requestedResource = string.match(ngx.var.uri, "%a*$")
+  local tokenIcn = json.data.attributes["va_identifiers"].icn
+  local requestedResource = nil
+
+  if (ngx.req.get_uri_args()["patient"] == nil) then
+    requestedResource = string.sub(string.match(ngx.var.uri, "/%a*/%w*$"), 2, -(string.len(tokenIcn)+2))
+  else
+    requestedResource = string.match(ngx.var.uri, "%a*$")
+  end
+
   local requestScope = "patient/" .. requestedResource .. ".read"
 
   if (self:check_for_array_entry(json.data.attributes.scp, requestScope) ~= true) then
