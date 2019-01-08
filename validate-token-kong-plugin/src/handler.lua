@@ -84,6 +84,7 @@ function ValidateToken:access(conf)
 
   local tokenIcn = json.data.attributes["va_identifiers"].icn
   local requestIcn = ngx.req.get_uri_args()["patient"]
+  local requestedResource = string.match(ngx.var.uri, "%a*$")
 
   if (requestIcn == nil) then
     i, j = find(ngx.var.uri, "/Patient/")
@@ -101,9 +102,24 @@ function ValidateToken:access(conf)
     end
   end
 
-  -- TODO validate scopes
-  --ngx.log(ngx.ERR, "Scopes: ", json.data.attributes.scp[0])
+  local requestScope = "patient/" .. requestedResource .. ".read"
 
+  if (self:check_for_scope(json.data.attributes.scp, requestScope) ~= true) then
+    ngx.log(ngx.ERR, "Requested resource scope not granted to token")
+    return self:send_response(403, TOKEN_MISMATCH)
+  end
+
+end
+
+function ValidateToken:check_for_scope(scope_array, request_scope)
+
+  for k, v in pairs(scope_array) do
+    if (v == request_scope) then
+      return true
+    end
+  end
+
+  return false
 end
 
 -- Format and send the response to the client
