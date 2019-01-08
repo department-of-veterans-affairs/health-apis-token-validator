@@ -91,7 +91,6 @@ function ValidateToken:check_icn(json)
 
   local tokenIcn = json.data.attributes["va_identifiers"].icn
   local requestIcn = ngx.req.get_uri_args()["patient"]
-  local requestedResource = string.match(ngx.var.uri, "%a*$")
 
   if (requestIcn == nil) then
     i, j = find(ngx.var.uri, "/Patient/")
