@@ -31,6 +31,7 @@ local INVALID_TOKEN = "invalid token."
 local BAD_VALIDATE_ENDPOINT = "Validate endpoint not found."
 local VALIDATE_ERROR = "Error validating token."
 local TOKEN_MISMATCH = "Token not allowed access to this patient."
+local SCOPE_MISMATCH = "Token not granted requested scope."
 
 function ValidateToken:new()
   ValidateToken.super.new(self, "validate-token")
@@ -78,9 +79,15 @@ function ValidateToken:access(conf)
     return self:send_response(500, VALIDATE_ERROR)
   end
 
-
-  -- TODO Move to a separate request validation function
+  -- Additional token validation
   local json = cjson.decode(verification_res_body)
+
+  self:check_icn(json)
+  self:check_scope(json)
+
+end
+
+function ValidateToken:check_icn(json)
 
   local tokenIcn = json.data.attributes["va_identifiers"].icn
   local requestIcn = ngx.req.get_uri_args()["patient"]
@@ -91,30 +98,35 @@ function ValidateToken:access(conf)
     if (i ~= nil) then
       local pathIcn = string.sub(ngx.var.uri, j+1, j+1+string.len(tokenIcn))
       if (pathIcn ~= tokenIcn) then
-        ngx.log(ngx.ERR, "Path ICN does not match token")
+        ngx.log(ngx.INFO, "Path ICN does not match token")
         return self:send_response(403, TOKEN_MISMATCH)
       end
     end
   else
     if (requestIcn ~= tokenIcn) then
-      ngx.log(ngx.ERR, "Requested ICN does not match token")
+      ngx.log(ngx.INFO, "Requested ICN does not match token")
       return self:send_response(403, TOKEN_MISMATCH)
     end
   end
 
+end
+
+function ValidateToken:check_scope(json)
+
+  local requestedResource = string.match(ngx.var.uri, "%a*$")
   local requestScope = "patient/" .. requestedResource .. ".read"
 
-  if (self:check_for_scope(json.data.attributes.scp, requestScope) ~= true) then
-    ngx.log(ngx.ERR, "Requested resource scope not granted to token")
-    return self:send_response(403, TOKEN_MISMATCH)
+  if (self:check_for_array_entry(json.data.attributes.scp, requestScope) ~= true) then
+    ngx.log(ngx.INFO, "Requested resource scope not granted to token")
+    return self:send_response(403, SCOPE_MISMATCH)
   end
 
 end
 
-function ValidateToken:check_for_scope(scope_array, request_scope)
+function ValidateToken:check_for_array_entry(array, entry)
 
-  for k, v in pairs(scope_array) do
-    if (v == request_scope) then
+  for k, v in pairs(array) do
+    if (v == entry) then
       return true
     end
   end
