@@ -1,7 +1,7 @@
 version: '2.1'
 services:
   kong-migrations:
-    image: "kong:latest"
+    image: "kong:0.14.1"
     command: kong migrations up
     depends_on:
       db:
@@ -15,7 +15,7 @@ services:
     links:
       - db:db
   kong:
-    image: "kong:latest"
+    image: "kong:0.14.1"
     depends_on:
       db:
         condition: service_healthy
