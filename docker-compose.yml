@@ -2,7 +2,7 @@ version: '2.1'
 services:
   kong-migrations:
     image: "kong:latest"
-    command: kong migrations bootstrap up
+    command: kong migrations up
     depends_on:
       db:
         condition: service_healthy
