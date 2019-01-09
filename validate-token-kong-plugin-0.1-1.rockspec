@@ -1,7 +1,7 @@
 package = "validate-token-kong-plugin"
 version = "0.1-1"
 source = {
-  url = "https://github.com/department-of-veterans-affairs/health-apis-token-validator",
+  url = "git://github.com/department-of-veterans-affairs/health-apis-token-validator.git",
 }
 description = {
   summary = "A Kong plugin to perform token validation prior to API calls"
