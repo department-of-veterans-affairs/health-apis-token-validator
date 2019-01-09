@@ -1,7 +1,6 @@
 local ValidateToken = require("kong.plugins.base_plugin"):extend()
 
 local http = require "resty.http"
-local responses = require "kong.tools.responses"
 local cjson = require "cjson.safe"
 
 local find = string.find
@@ -116,7 +115,11 @@ function ValidateToken:check_scope(json)
   local requestedResource = nil
 
   if (ngx.req.get_uri_args()["patient"] == nil) then
-    requestedResource = string.sub(string.match(ngx.var.uri, "/%a*/%w*$"), 2, -(string.len(tokenIcn)+2))
+    local requestedResourceRead = string.match(ngx.var.uri, "/%a*/.*$")
+    i, j = find(requestedResourceRead, "/%a*/")
+    if (i ~= nil) then
+      requestedResource = string.sub(requestedResourceRead, i+1, j-1)
+    end
   else
     requestedResource = string.match(ngx.var.uri, "%a*$")
   end
