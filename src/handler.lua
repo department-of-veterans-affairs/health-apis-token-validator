@@ -1,4 +1,4 @@
-local ValidateToken = require("kong.plugins.base_plugin"):extend()
+local HealthApisTokenValidator = require("kong.plugins.base_plugin"):extend()
 
 local http = require "resty.http"
 local cjson = require "cjson.safe"
@@ -32,13 +32,13 @@ local VALIDATE_ERROR = "Error validating token."
 local TOKEN_MISMATCH = "Token not allowed access to this patient."
 local SCOPE_MISMATCH = "Token not granted requested scope."
 
-function ValidateToken:new()
-  ValidateToken.super.new(self, "validate-token")
+function HealthApisTokenValidator:new()
+  HealthApisTokenValidator.super.new(self, "health-apis-token-validator")
 
 end
 
-function ValidateToken:access(conf)
-  ValidateToken.super.access(self)
+function HealthApisTokenValidator:access(conf)
+  HealthApisTokenValidator.super.access(self)
 
   self.conf = conf
 
@@ -86,7 +86,7 @@ function ValidateToken:access(conf)
 
 end
 
-function ValidateToken:check_icn(json)
+function HealthApisTokenValidator:check_icn(json)
 
   local tokenIcn = json.data.attributes["va_identifiers"].icn
   local requestIcn = ngx.req.get_uri_args()["patient"]
@@ -109,7 +109,7 @@ function ValidateToken:check_icn(json)
 
 end
 
-function ValidateToken:check_scope(json)
+function HealthApisTokenValidator:check_scope(json)
 
   local tokenIcn = json.data.attributes["va_identifiers"].icn
   local requestedResource = nil
@@ -133,7 +133,7 @@ function ValidateToken:check_scope(json)
 
 end
 
-function ValidateToken:check_for_array_entry(array, entry)
+function HealthApisTokenValidator:check_for_array_entry(array, entry)
 
   for k, v in pairs(array) do
     if (v == entry) then
@@ -145,7 +145,7 @@ function ValidateToken:check_for_array_entry(array, entry)
 end
 
 -- Format and send the response to the client
-function ValidateToken:send_response(status_code, message)
+function HealthApisTokenValidator:send_response(status_code, message)
 
   ngx.status = status_code
   ngx.header["Content-Type"] = TYPE_JSON
@@ -156,6 +156,6 @@ function ValidateToken:send_response(status_code, message)
 end
 
 
-ValidateToken.PRIORITY = 1010
+HealthApisTokenValidator.PRIORITY = 1010
 
-return ValidateToken
+return HealthApisTokenValidator
