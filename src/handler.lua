@@ -54,6 +54,7 @@ function HealthApisTokenValidator:access(conf)
     ssl_verify = false,
     headers = {
       Authorization = ngx.req.get_headers()["Authorization"],
+      Host = self.conf.verification_host,
       apiKey = self.conf.api_key,
     },
   })
