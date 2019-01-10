@@ -115,7 +115,7 @@ function HealthApisTokenValidator:check_scope(json)
   local requestedResource = nil
 
   if (ngx.req.get_uri_args()["patient"] == nil) then
-    local requestedResourceRead = string.match(ngx.var.uri, "/%a*/.*$")
+    local requestedResourceRead = string.match(ngx.var.uri, "/%a*/[%w%-]+$")
     i, j = find(requestedResourceRead, "/%a*/")
     if (i ~= nil) then
       requestedResource = string.sub(requestedResourceRead, i+1, j-1)
