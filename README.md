@@ -1,6 +1,6 @@
 # health-apis-token-validator
 
-## Validate-Token Kong Plugin
+## health-apis-token-validator Kong Plugin
 
 This repository contains a Kong plugin to validate a supplied OAuth token.  It can be installed on a Kong instance and configured to run against the entire instance, specific API's, or specific routes.
 
