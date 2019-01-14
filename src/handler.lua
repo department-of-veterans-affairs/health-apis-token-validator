@@ -59,9 +59,9 @@ function HealthApisTokenValidator:access(conf)
     
     self:check_scope(responseScopes)
   end
-    
+
   self:check_icn(tokenIcn)
-    
+
 end
 
 function HealthApisTokenValidator:check_token()
