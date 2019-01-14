@@ -43,8 +43,28 @@ function HealthApisTokenValidator:access(conf)
   self.conf = conf
 
   if (ngx.req.get_headers()["Authorization"] == nil) then
-      return self:send_response(401, INVALID_TOKEN)
+    return self:send_response(401, INVALID_TOKEN)
   end
+
+  local token = self:get_token_from_auth_string(ngx.req.get_headers()["Authorization"])
+  local tokenIcn = nil
+  
+  if (token == self.conf.static_token) then
+    tokenIcn = self.conf.static_icn    
+  else 
+    local responseJson = self:check_token()
+    
+    tokenIcn = responseJson.data.attributes["va_identifiers"].icn
+    responseScopes = responseJson.data.attributes.scp
+    
+    self:check_scope(responseScopes)
+  end
+    
+  self:check_icn(tokenIcn)
+    
+end
+
+function HealthApisTokenValidator:check_token()
 
   local client = http.new()
   client:set_timeout(self.conf.verification_timeout)
@@ -53,9 +73,9 @@ function HealthApisTokenValidator:access(conf)
     method = "GET",
     ssl_verify = false,
     headers = {
-      Authorization = ngx.req.get_headers()["Authorization"],
-      Host = self.conf.verification_host,
-      apiKey = self.conf.api_key,
+    Authorization = ngx.req.get_headers()["Authorization"],
+    Host = self.conf.verification_host,
+    apiKey = self.conf.api_key,
     },
   })
 
@@ -78,18 +98,13 @@ function HealthApisTokenValidator:access(conf)
   if (verification_res_status < 200 or verification_res_status > 299) then
     return self:send_response(500, VALIDATE_ERROR)
   end
-
-  -- Additional token validation
-  local json = cjson.decode(verification_res_body)
-
-  self:check_icn(json)
-  self:check_scope(json)
+  
+  return cjson.decode(verification_res_body)
 
 end
 
-function HealthApisTokenValidator:check_icn(json)
+function HealthApisTokenValidator:check_icn(tokenIcn)
 
-  local tokenIcn = json.data.attributes["va_identifiers"].icn
   local requestIcn = ngx.req.get_uri_args()["patient"]
 
   if (requestIcn == nil) then
@@ -110,9 +125,8 @@ function HealthApisTokenValidator:check_icn(json)
 
 end
 
-function HealthApisTokenValidator:check_scope(json)
+function HealthApisTokenValidator:check_scope(tokenScope)
 
-  local tokenIcn = json.data.attributes["va_identifiers"].icn
   local requestedResource = nil
 
   if (ngx.req.get_uri_args()["patient"] == nil) then
@@ -127,7 +141,7 @@ function HealthApisTokenValidator:check_scope(json)
 
   local requestScope = "patient/" .. requestedResource .. ".read"
 
-  if (self:check_for_array_entry(json.data.attributes.scp, requestScope) ~= true) then
+  if (self:check_for_array_entry(tokenScope, requestScope) ~= true) then
     ngx.log(ngx.INFO, "Requested resource scope not granted to token")
     return self:send_response(403, SCOPE_MISMATCH)
   end
@@ -143,6 +157,17 @@ function HealthApisTokenValidator:check_for_array_entry(array, entry)
   end
 
   return false
+end
+
+function HealthApisTokenValidator:get_token_from_auth_string(authString)
+
+  i, j = find(authString, "Bearer ")
+  if (i ~= nil) then
+    return string.sub(authString, j+1)
+  else
+    return "Bad Token"
+  end
+
 end
 
 -- Format and send the response to the client
