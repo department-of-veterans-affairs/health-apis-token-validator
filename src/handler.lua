@@ -81,16 +81,32 @@ function HealthApisTokenValidator:access(conf)
 
   -- Additional token validation
   local json = cjson.decode(verification_res_body)
+  local requestIcn = self:get_request_icn()
 
   self:check_icn(json)
   self:check_scope(json)
 
 end
 
+function HealthApisTokenValidator:get_request_icn()
+  local patientIcn = ngx.req.get_uri_args()["patient"]; 
+  local _idIcn = ngx.req.get_uri_args()["_id"]
+  local identifierIcn = ngx.req.get_uri_args()["identifier"]
+
+  if (patientIcn ~= nil) then 
+    return patientIcn 
+  elseif (_idIcn ~= nil) then
+    return _idIcn
+  elseif (identifierIcn ~= nil) then
+    return identifierIcn
+  else return nil
+  end
+end
+
 function HealthApisTokenValidator:check_icn(json)
 
   local tokenIcn = json.data.attributes["va_identifiers"].icn
-  local requestIcn = ngx.req.get_uri_args()["patient"]
+  local requestIcn = self:get_request_icn()
 
   if (requestIcn == nil) then
     i, j = find(ngx.var.uri, "/Patient/")
@@ -115,7 +131,7 @@ function HealthApisTokenValidator:check_scope(json)
   local tokenIcn = json.data.attributes["va_identifiers"].icn
   local requestedResource = nil
 
-  if (ngx.req.get_uri_args()["patient"] == nil) then
+  if (self:get_request_icn() == nil) then
     local requestedResourceRead = string.match(ngx.var.uri, "/%a*/[%w%-]+$")
     i, j = find(requestedResourceRead, "/%a*/")
     if (i ~= nil) then
