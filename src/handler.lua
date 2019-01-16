@@ -29,6 +29,7 @@ local OPERATIONAL_OUTCOME_TEMPLATE =
 local INVALID_TOKEN = "invalid token."
 local BAD_VALIDATE_ENDPOINT = "Validate endpoint not found."
 local VALIDATE_ERROR = "Error validating token."
+local ICN_MISSING = "Patient identifier not supplied."
 local TOKEN_MISMATCH = "Token not allowed access to this patient."
 local SCOPE_MISMATCH = "Token not granted requested scope."
 
@@ -43,8 +44,28 @@ function HealthApisTokenValidator:access(conf)
   self.conf = conf
 
   if (ngx.req.get_headers()["Authorization"] == nil) then
-      return self:send_response(401, INVALID_TOKEN)
+    return self:send_response(401, INVALID_TOKEN)
   end
+
+  local token = self:get_token_from_auth_string(ngx.req.get_headers()["Authorization"])
+  local tokenIcn = nil
+
+  if (token == self.conf.static_token) then
+    tokenIcn = self.conf.static_icn
+  else
+    local responseJson = self:check_token()
+
+    tokenIcn = responseJson.data.attributes["va_identifiers"].icn
+    responseScopes = responseJson.data.attributes.scp
+
+    self:check_scope(responseScopes)
+  end
+
+  self:check_icn(tokenIcn)
+
+end
+
+function HealthApisTokenValidator:check_token()
 
   local client = http.new()
   client:set_timeout(self.conf.verification_timeout)
@@ -79,55 +100,32 @@ function HealthApisTokenValidator:access(conf)
     return self:send_response(500, VALIDATE_ERROR)
   end
 
-  -- Additional token validation
-  local json = cjson.decode(verification_res_body)
-
-  self:check_icn(json)
-  self:check_scope(json)
+  return cjson.decode(verification_res_body)
 
 end
 
-function HealthApisTokenValidator:check_icn(json)
+function HealthApisTokenValidator:check_icn(tokenIcn)
 
-  local tokenIcn = json.data.attributes["va_identifiers"].icn
-  local requestIcn = ngx.req.get_uri_args()["patient"]
+  local requestIcn = self:get_request_icn()
 
   if (requestIcn == nil) then
-    i, j = find(ngx.var.uri, "/Patient/")
-    if (i ~= nil) then
-      local pathIcn = string.sub(ngx.var.uri, j+1, j+1+string.len(tokenIcn))
-      if (pathIcn ~= tokenIcn) then
-        ngx.log(ngx.INFO, "Path ICN does not match token")
-        return self:send_response(403, TOKEN_MISMATCH)
-      end
+    if (self:is_request_search()) then
+      return self:send_response(403, ICN_MISSING)
     end
-  else
-    if (requestIcn ~= tokenIcn) then
-      ngx.log(ngx.INFO, "Requested ICN does not match token")
-      return self:send_response(403, TOKEN_MISMATCH)
-    end
+  elseif (requestIcn ~= tokenIcn) then
+    ngx.log(ngx.INFO, "Requested ICN does not match token")
+    return self:send_response(403, TOKEN_MISMATCH)
   end
 
 end
 
-function HealthApisTokenValidator:check_scope(json)
+function HealthApisTokenValidator:check_scope(tokenScope)
 
-  local tokenIcn = json.data.attributes["va_identifiers"].icn
-  local requestedResource = nil
-
-  if (ngx.req.get_uri_args()["patient"] == nil) then
-    local requestedResourceRead = string.match(ngx.var.uri, "/%a*/[%w%-]+$")
-    i, j = find(requestedResourceRead, "/%a*/")
-    if (i ~= nil) then
-      requestedResource = string.sub(requestedResourceRead, i+1, j-1)
-    end
-  else
-    requestedResource = string.match(ngx.var.uri, "%a*$")
-  end
-
+  local requestedResource = self:get_requested_resource_type()
   local requestScope = "patient/" .. requestedResource .. ".read"
 
-  if (self:check_for_array_entry(json.data.attributes.scp, requestScope) ~= true) then
+  ngx.log(ngx.ERR, "Requested scope: ", requestScope)
+  if (self:check_for_array_entry(tokenScope, requestScope) ~= true) then
     ngx.log(ngx.INFO, "Requested resource scope not granted to token")
     return self:send_response(403, SCOPE_MISMATCH)
   end
@@ -143,6 +141,81 @@ function HealthApisTokenValidator:check_for_array_entry(array, entry)
   end
 
   return false
+end
+
+function HealthApisTokenValidator:get_token_from_auth_string(authString)
+
+  i, j = find(authString, "Bearer ")
+  if (i ~= nil) then
+    return string.sub(authString, j+1)
+  else
+    return "Bad Token"
+  end
+
+end
+
+function HealthApisTokenValidator:is_request_read()
+  local requestedResourceRead = string.match(ngx.var.uri, "/%a*/[%w%-]+$")
+  return (requestedResourceRead ~= nil)
+end
+
+function HealthApisTokenValidator:is_request_search()
+  return (self:get_search_icn() ~= nil)
+end
+
+function HealthApisTokenValidator:get_request_icn()
+
+  if (self:is_request_read()) then
+    return self:get_read_icn()
+  else
+    return self:get_search_icn()
+  end
+
+end
+
+function HealthApisTokenValidator:get_read_icn()
+
+  i, j = find(ngx.var.uri, "/Patient/")
+  if (i ~= nil) then
+    local pathIcn = string.sub(ngx.var.uri, j+1)
+    return pathIcn
+  end
+
+end
+
+function HealthApisTokenValidator:get_search_icn()
+
+  local patientIcn = ngx.req.get_uri_args()["patient"];
+  local _idIcn = ngx.req.get_uri_args()["_id"]
+
+  if (patientIcn ~= nil) then
+    return patientIcn
+  elseif (_idIcn ~= nil) then
+    --_id is only a valid search for Patient
+    if (self:get_requested_resource_type() == "Patient") then
+      return _idIcn
+    end
+  else
+  end
+
+end
+
+function HealthApisTokenValidator:get_requested_resource_type()
+
+  local requestedResource = nil
+
+  if (self:is_request_read()) then
+    local requestedResourceRead = string.match(ngx.var.uri, "/%a*/[%w%-]+$")
+    i, j = find(requestedResourceRead, "/%a*/")
+    if (i ~= nil) then
+      requestedResource = string.sub(requestedResourceRead, i+1, j-1)
+    end
+  else
+    requestedResource = string.match(ngx.var.uri, "%a*$")
+  end
+
+  return requestedResource
+
 end
 
 -- Format and send the response to the client
