@@ -20,7 +20,9 @@ Once the plugin is installed on the Kong instance, it can be configured via the 
     "config": {
         "verification_url": "{verification-url}",
         "verification_timeout": {verification-timeout},
-        "api_key": "{api-key}"
+        "api_key": "{api-key}",
+        "static_token": "{static-token}",
+        "static_icn": "{static-icn}"
     },
     "enabled": true
 }
@@ -65,3 +67,5 @@ The base Kong docker-compose file has been updated to mount the two plugins as v
 Docker must be allowed share access to the location of your local repo.
 
 > Note:   There have been issues observed mounting volumes when logged in to your machine with an Active Directory account
+
+With volume mounting, you can use your local machine's text editor of choice for testing changes of the Lua files.  A simple `kong reload` will update your changes within the kong instance.
