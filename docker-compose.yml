@@ -16,6 +16,9 @@ services:
       - db:db
   kong:
     image: "kong:0.14.1"
+    volumes:
+      - ./kong/plugins/health-apis-static-token-handler:/usr/local/share/lua/5.1/kong/plugins/health-apis-static-token-handler
+      - ./kong/plugins/health-apis-token-validator:/usr/local/share/lua/5.1/kong/plugins/health-apis-token-validator
     depends_on:
       db:
         condition: service_healthy
@@ -31,6 +34,7 @@ services:
       KONG_PG_USER: kong
       KONG_PROXY_ACCESS_LOG: /dev/stdout
       KONG_PROXY_ERROR_LOG: /dev/stderr
+      KONG_PLUGINS: bundled,health-apis-token-validator,health-apis-static-token-handler
     links:
       - db:db
     ports:

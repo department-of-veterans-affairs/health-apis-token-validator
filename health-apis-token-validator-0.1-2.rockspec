@@ -1,5 +1,5 @@
 package = "health-apis-token-validator"
-version = "0.1-1"
+version = "0.1-2"
 source = {
   url = "git://github.com/department-of-veterans-affairs/health-apis-token-validator.git",
 }
@@ -13,7 +13,7 @@ dependencies = {
 build = {
   type = "builtin",
   modules = {
-    ["kong.plugins.health-apis-token-validator.handler"] = "src/handler.lua",
-    ["kong.plugins.health-apis-token-validator.schema"] = "src/schema.lua"
+    ["kong.plugins.health-apis-token-validator.handler"] = "kong/plugins/health-apis-token-validator/handler.lua",
+    ["kong.plugins.health-apis-token-validator.schema"] = "kong/plugins/health-apis-token-validator/schema.lua"
   }
 }
